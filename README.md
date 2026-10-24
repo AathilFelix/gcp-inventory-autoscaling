@@ -36,7 +36,7 @@ Google Cloud services used: Compute Engine (instance templates, managed instance
 app/        Flask API + single-page UI (main.py, templates/index.html)
 deploy/     gcloud scripts: deploy.sh, seed.sh, loadtest.sh, capture_evidence.sh,
             analyze_autoscaling.py, teardown.sh
-docs/       screenshots, raw evidence (gcloud output, audit log, latency samples) and charts
+docs/       app and Google Cloud Console screenshots, raw evidence (gcloud output, audit log, latency samples) and charts
 ```
 
 ## Run it yourself
