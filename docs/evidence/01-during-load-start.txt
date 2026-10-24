@@ -1,0 +1,60 @@
+# Captured 2026-10-24T07:24:28Z  project=inventory-gce-24cs010  region=asia-south1
+
+## Managed instance group
+NAME           LOCATION  BASE_INSTANCE_NAME  SIZE  TARGET_SIZE  INSTANCE_TEMPLATE
+inventory-mig            inventory-mig       4     4            inventory-template-v1
+NAME                ZONE           STATUS   HEALTH_STATE  ACTION  INSTANCE_TEMPLATE      VERSION_NAME  LAST_ERROR
+inventory-mig-wq6s  asia-south1-a  RUNNING  HEALTHY       NONE    inventory-template-v1
+inventory-mig-5sgb  asia-south1-b  RUNNING  HEALTHY       NONE    inventory-template-v1
+inventory-mig-c6br  asia-south1-c  RUNNING  HEALTHY       NONE    inventory-template-v1
+inventory-mig-tgvz  asia-south1-c  RUNNING  HEALTHY       NONE    inventory-template-v1
+
+## Autoscaler policy
+name: inventory-mig-w6wm  status: ACTIVE
+min/max replicas: 2 / 4
+cpu target: 0.6  cool-down(s): 180
+scale-in control: {'maxScaledInReplicas': {'fixed': 1}, 'timeWindowSec': 120}
+
+## Load balancer backend health
+inventory-mig-5sgb HEALTHY
+inventory-mig-wq6s HEALTHY
+inventory-mig-tgvz HEALTHY
+inventory-mig-c6br HEALTHY
+
+## Instances (zone, type, internal/external IP)
+NAME                ZONE           MACHINE_TYPE  STATUS   INTERNAL_IP  EXTERNAL_IP
+inventory-mig-5sgb  asia-south1-b  e2-small      RUNNING  10.160.0.3   8.231.120.215
+inventory-mig-wq6s  asia-south1-a  e2-small      RUNNING  10.160.0.2   8.234.70.168
+inventory-mig-c6br  asia-south1-c  e2-small      RUNNING  10.160.0.7   35.244.61.81
+inventory-mig-tgvz  asia-south1-c  e2-small      RUNNING  10.160.0.6   8.234.65.169
+
+## Load balancer
+NAME           IP_ADDRESS    TARGET           PORT_RANGE  LOAD_BALANCING_SCHEME
+inventory-fwd  34.8.163.102  inventory-proxy  80-80       EXTERNAL_MANAGED
+NAME               PROTOCOL  LOAD_BALANCING_SCHEME  HEALTH_CHECK
+inventory-backend  HTTP      EXTERNAL_MANAGED       inventory-hc
+NAME              DEFAULT_SERVICE
+inventory-urlmap  backendServices/inventory-backend
+
+## Firewall rules
+NAME                    DIRECTION  SOURCES                       ALLOW                         TARGET_TAGS
+allow-iap-ssh           INGRESS    35.235.240.0/20               tcp:22
+allow-lb-to-inventory   INGRESS    130.211.0.0/22,35.191.0.0/16  tcp:8080                      inventory-app
+default-allow-icmp      INGRESS    0.0.0.0/0                     icmp
+default-allow-internal  INGRESS    10.128.0.0/9                  tcp:0-65535,udp:0-65535,icmp
+
+## Service account and roles
+ROLE
+roles/datastore.user
+roles/logging.logWriter
+roles/monitoring.metricWriter
+
+## Firestore
+freeTier: true
+locationId: asia-south1
+name: projects/inventory-gce-24cs010/databases/(default)
+type: FIRESTORE_NATIVE
+
+## Cloud Storage
+      5651  2026-10-24T07:00:47Z  gs://inventory-gce-24cs010-app-artifacts/app.tar.gz
+TOTAL: 1 objects, 5651 bytes (5.52kiB)

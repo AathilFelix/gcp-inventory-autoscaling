@@ -1,0 +1,13 @@
+.DS_Store
+__pycache__/
+*.pyc
+.venv/
+venv/
+.gstack/
+*.tar.gz
+.env
+*.key
+*.pem
+
+# project report (contains student names and register numbers) is submitted separately
+Report/

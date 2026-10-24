@@ -1,0 +1,11 @@
+UTC       EVENT                        INSTANCE
+07:03:11  v1.compute.instances.insert  inventory-mig-wq6s
+07:03:11  v1.compute.instances.insert  inventory-mig-5sgb
+07:06:05  v1.compute.instances.insert  inventory-mig-fm2r
+07:06:05  v1.compute.instances.insert  inventory-mig-r98n
+07:18:40  v1.compute.instances.delete  inventory-mig-r98n
+07:20:41  v1.compute.instances.delete  inventory-mig-fm2r
+07:21:55  v1.compute.instances.insert  inventory-mig-c6br
+07:21:55  v1.compute.instances.insert  inventory-mig-tgvz
+07:41:15  v1.compute.instances.delete  inventory-mig-tgvz
+07:43:13  v1.compute.instances.delete  inventory-mig-wq6s

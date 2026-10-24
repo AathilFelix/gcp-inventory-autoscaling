@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock Manager</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1b1f24; --mute:#667085; --line:#e4e7ec; --brand:#1a73e8; --warn:#b42318; --ok:#067647; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111418; --card:#1a1f26; --ink:#e8eaed; --mute:#9aa4b2; --line:#2a313b; --brand:#8ab4f8; --warn:#f97066; --ok:#47cd89; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  main { max-width:1000px; margin:0 auto; padding:20px 16px 60px; }
+  header { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; }
+  h1 { font-size:22px; margin:0; }
+  .served { color:var(--mute); font-size:13px; }
+  .served b { color:var(--ink); font-family:ui-monospace,monospace; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:18px 0; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .stat .n { font-size:26px; font-weight:650; }
+  .stat .l { color:var(--mute); font-size:13px; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:9px 8px; border-bottom:1px solid var(--line); }
+  th { color:var(--mute); font-weight:500; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .low { color:var(--warn); font-weight:600; }
+  .tbl { overflow-x:auto; }
+  form.add { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; margin-top:8px; }
+  input, button { font:inherit; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--ink); }
+  button { cursor:pointer; background:var(--brand); border-color:var(--brand); color:#fff; }
+  button.ghost { background:transparent; color:var(--brand); }
+  button:focus-visible, input:focus-visible { outline:2px solid var(--brand); outline-offset:2px; }
+  .row-actions { display:flex; gap:6px; justify-content:flex-end; }
+  .row-actions button { padding:4px 10px; }
+  h2 { font-size:16px; margin:26px 0 8px; }
+  #msg { min-height:22px; color:var(--mute); margin-top:8px; }
+  #msg.err { color:var(--warn); }
+  .empty { color:var(--mute); padding:18px 8px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Stock Manager</h1>
+    <div class="served">Served by <b id="inst">-</b></div>
+  </header>
+
+  <section class="stats" aria-label="Summary">
+    <div class="card stat"><div class="n" id="s-products">-</div><div class="l">Products</div></div>
+    <div class="card stat"><div class="n" id="s-units">-</div><div class="l">Units in stock</div></div>
+    <div class="card stat"><div class="n" id="s-value">-</div><div class="l">Inventory value</div></div>
+    <div class="card stat"><div class="n" id="s-low">-</div><div class="l">Low-stock items</div></div>
+  </section>
+
+  <section class="card">
+    <strong>Add product</strong>
+    <form class="add" id="add">
+      <input name="sku" placeholder="SKU" required maxlength="40" aria-label="SKU">
+      <input name="name" placeholder="Name" required maxlength="120" aria-label="Name">
+      <input name="category" placeholder="Category" aria-label="Category">
+      <input name="price" type="number" min="0" step="0.01" placeholder="Price" required aria-label="Price">
+      <input name="quantity" type="number" min="0" step="1" placeholder="Qty" required aria-label="Quantity">
+      <input name="reorder_level" type="number" min="0" step="1" placeholder="Reorder at" aria-label="Reorder level">
+      <button type="submit">Add</button>
+    </form>
+    <div id="msg" role="status"></div>
+  </section>
+
+  <h2>Products</h2>
+  <section class="card tbl">
+    <table>
+      <thead><tr><th>SKU</th><th>Name</th><th>Category</th><th class="num">Price</th><th class="num">Qty</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div id="empty" class="empty" hidden>No products yet. Add the first one above.</div>
+  </section>
+
+  <h2>Recent stock movements</h2>
+  <section class="card tbl">
+    <table>
+      <thead><tr><th>When</th><th>SKU</th><th class="num">Change</th><th>Note</th><th>Instance</th></tr></thead>
+      <tbody id="moves"></tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const money = (v) => "Rs. " + Number(v).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+
+async function api(path, opts) {
+  const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
+  const body = res.status === 204 ? {} : await res.json();
+  if (!res.ok) throw new Error(body.error || res.statusText);
+  return body;
+}
+
+function say(text, isErr) { const m = $("msg"); m.textContent = text; m.className = isErr ? "err" : ""; }
+
+function cell(tr, text, cls) { const td = tr.insertCell(); td.textContent = text; if (cls) td.className = cls; return td; }
+
+async function refresh() {
+  const [list, sum, mv] = await Promise.all([api("/api/products"), api("/api/summary"), api("/api/movements")]);
+  $("inst").textContent = list.served_by;
+  $("s-products").textContent = sum.products;
+  $("s-units").textContent = sum.units.toLocaleString("en-IN");
+  $("s-value").textContent = money(sum.value);
+  $("s-low").textContent = sum.low_stock.length;
+
+  const rows = $("rows"); rows.replaceChildren();
+  $("empty").hidden = list.items.length > 0;
+  for (const p of list.items) {
+    const tr = rows.insertRow();
+    cell(tr, p.sku); cell(tr, p.name); cell(tr, p.category || "-"); cell(tr, money(p.price), "num");
+    cell(tr, p.quantity, "num" + (p.quantity <= p.reorder_level ? " low" : ""));
+    const act = tr.insertCell(); const wrap = document.createElement("div"); wrap.className = "row-actions";
+    for (const [label, delta] of [["+10", 10], ["-1", -1]]) {
+      const b = document.createElement("button"); b.className = "ghost"; b.textContent = label;
+      b.setAttribute("aria-label", `${label} units of ${p.sku}`);
+      b.onclick = () => adjust(p.sku, delta);
+      wrap.append(b);
+    }
+    const del = document.createElement("button"); del.className = "ghost"; del.textContent = "Delete";
+    del.onclick = () => remove(p.sku); wrap.append(del); act.append(wrap);
+  }
+
+  const moves = $("moves"); moves.replaceChildren();
+  for (const m of mv.items) {
+    const tr = moves.insertRow();
+    cell(tr, new Date(m.at).toLocaleTimeString()); cell(tr, m.sku);
+    cell(tr, (m.delta > 0 ? "+" : "") + m.delta, "num"); cell(tr, m.note || ""); cell(tr, m.by);
+  }
+}
+
+async function adjust(sku, delta) {
+  try { await api(`/api/products/${encodeURIComponent(sku)}/stock`, { method: "POST", body: JSON.stringify({ delta, note: delta > 0 ? "restock" : "sale" }) }); say(""); }
+  catch (e) { say(e.message, true); }
+  refresh();
+}
+
+async function remove(sku) {
+  try { await api(`/api/products/${encodeURIComponent(sku)}`, { method: "DELETE" }); say(`${sku} deleted`); }
+  catch (e) { say(e.message, true); }
+  refresh();
+}
+
+$("add").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const f = Object.fromEntries(new FormData(ev.target));
+  if (f.reorder_level === "") delete f.reorder_level;
+  try { await api("/api/products", { method: "POST", body: JSON.stringify(f) }); say(`${f.sku.toUpperCase()} added`); ev.target.reset(); }
+  catch (e) { say(e.message, true); }
+  refresh();
+});
+
+refresh().catch((e) => say(e.message, true));
+setInterval(() => refresh().catch(() => {}), 15000);
+</script>
+</body>
+</html>
