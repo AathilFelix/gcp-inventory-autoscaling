@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Removes every billable resource the deploy script created. The Firestore database is left in place
-# (it cannot be recreated in the same location for a while and costs nothing when idle).
+# Removes every billable resource the deploy script created, plus the Firestore data, so nothing is left running.
+# The empty Firestore database itself stays (it costs nothing when idle and cannot be quickly recreated in the
+# same location). Each step is independent, so re-running after a partial failure is safe.
 set -uo pipefail
 cd "$(dirname "$0")"
 source ./config.sh
@@ -16,3 +17,5 @@ $G compute health-checks delete "${HEALTH_CHECK}"
 $G compute addresses delete "${LB_IP_NAME}" --global
 $G compute firewall-rules delete allow-lb-to-inventory allow-iap-ssh
 $G storage rm -r "gs://${BUCKET}"
+$G firestore bulk-delete --collection-ids=products,movements
+exit 0

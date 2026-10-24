@@ -34,22 +34,25 @@ Google Cloud services used: Compute Engine (instance templates, managed instance
 
 ```
 app/        Flask API + single-page UI (main.py, templates/index.html)
-deploy/     gcloud scripts: deploy.sh, seed.sh, loadtest.sh, capture_evidence.sh,
-            analyze_autoscaling.py, teardown.sh
+deploy/     gcloud scripts: demo.sh (up/down/status), deploy.sh, seed.sh, loadtest.sh,
+            capture_evidence.sh, analyze_autoscaling.py, teardown.sh
 docs/       app and Google Cloud Console screenshots, raw evidence (gcloud output, audit log, latency samples) and charts
 ```
 
-## Run it yourself
+## Run it yourself (one command)
 
-Prerequisites: `gcloud` logged in, a project with billing enabled.
+Prerequisites: `gcloud` logged in and a billing account you can use.
 
 ```bash
-export PROJECT_ID=your-project-id
-./deploy/deploy.sh        # ~5 minutes; prints the load balancer URL
-./deploy/seed.sh          # 12 sample products
-./deploy/loadtest.sh 540 24   # drive CPU load, watch the group scale out
-./deploy/teardown.sh      # delete everything that costs money
+./deploy/demo.sh up       # creates the project if needed, deploys everything, seeds data, prints the URL (~10 min)
+./deploy/loadtest.sh 540 24   # optional: drive CPU load and watch the group scale out (see docs/)
+./deploy/demo.sh status   # what is running right now
+./deploy/demo.sh down     # deletes every billable resource and the data; nothing keeps costing money
 ```
+
+`up` and `down` can be repeated as often as you like. Cloud Load Balancing and VMs cannot be paused, so the
+clean way to stop paying is `down`, and `up` rebuilds the identical system. Set `PROJECT_ID` to use another
+project, and `BILLING_ACCOUNT` if you have more than one.
 
 The load balancer takes a few minutes after creation to serve consistently; early requests can return a Google 404 page until its configuration has propagated.
 
